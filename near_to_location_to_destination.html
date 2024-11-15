@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Location & Nearby Hospital Finder</title>
+    <style>
+        :root {
+            --colorDark1: #112D4E;
+            --colorDark2: #3f72af;
+            --colorlight1: #0f0f0f;
+            --colorlight2: #f9f7f7;
+        }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            color: var(--colorlight1);
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            align-items: center;
+            padding: 20px;
+            background-image: linear-gradient(160deg, #112d4e 0%, #3f72af 100%);
+        }
+
+        h1 {
+            color: var(--colorlight2);
+        }
+
+        #locationOption {
+        padding: 10px 15px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #007BFF;
+        color: #fff;
+        border: none;
+        height: 43px;
+        border-radius: 5px;
+        margin-right: 10px;
+        transition: background-color 0.3s ease;
+    }
+
+    #locationOption:hover {
+        background-color: #0056b3;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+        #search-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            margin-right: 10px; 
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus {
+        border-color: #007BFF;
+    }
+
+        .one, .two,.voice-toggle  {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            height: 43px;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        .one:hover, .two:hover, .voice-toggle:hover {
+        background-color: #0056b3;
+    }
+
+
+        #map {
+            width: 100%;
+            height: 500px;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+
+        #results {
+            width: 100%;
+            max-width: 795px;
+            margin-top: 20px;
+        }
+
+        .hospital-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        /* Desktop View */
+    @media (min-width: 1024px) {
+        body {
+            padding: 20px;
+        }
+
+        #search-container {
+            flex-direction: row;
+            justify-content: space-between;
+            width: 80%;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            width: 250px;
+            margin-right: 10px;
+        }
+
+        .one, .two, .voice-toggle {
+            width: auto;
+        }
+
+        #map {
+            height: 600px;
+        }
+
+        h1 {
+            font-size: 32px;
+            text-align: center;
+        }
+    }
+
+    /* Tablet View */
+    @media (min-width: 768px) and (max-width: 1023px) {
+        body {
+            padding: 15px;
+        }
+
+        #search-container {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            width: 200px;
+            margin-right: 10px;
+        }
+
+        .one, .two, .voice-toggle {
+            width: auto;
+        }
+
+        #map {
+            height: 450px;
+        }
+
+        h1 {
+            font-size: 28px;
+            text-align: center;
+        }
+    }
+
+    /* Mobile View */
+    @media (max-width: 767px) {
+        body {
+            padding: 10px;
+        }
+       #locationOption{
+        text-align: center;
+       }
+        #search-container {
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            margin-right: 0;
+            margin-bottom: 10px;
+        }
+
+        .one, .two, .voice-toggle {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #map {
+            height: 300px;
+            max-width: 90%;
+        }
+
+        #locationOption {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 24px;
+            text-align: center;
+        }
+    }
+</style>
+
+      
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+</head>
+<body>
+    <h1>Live Location & Nearby Hospital Finder</h1>
+    <div id="search-container">
+        <select id="locationOption" onchange="toggleLocationInput()">
+            <option value="current">Use Current Location</option>
+            <option value="enter">Enter Location</option>
+        </select>
+        <input type="text" id="cityInput" placeholder="Enter city name" style="display:none;">
+        <button class="one" onclick="findHospitals()">Find Hospitals</button>
+        <button class="two" onclick="updateLocation()">Locate Me</button>
+        <button class="voice-toggle" onclick="toggleVoice()">Voice On</button>
+    </div>
+    <div id="map"></div>
+    <div id="results"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        let userLat, userLon, userMarker, routeControl;
+        let voiceEnabled = true;  // Flag to control voice functionality
+
+        const map = L.map('map').setView([22.1288, 82.1377], 13);  // Default location (Bilaspur)
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© Ujjwal'
+        }).addTo(map);
+
+
+
+
+
+
+
+        // Initial function to center the map based on the current location
+        function centerMapOnCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    userLat = position.coords.latitude;
+                    userLon = position.coords.longitude;
+                    map.setView([userLat, userLon], 13);
+                    if (!userMarker) {
+                        userMarker = L.marker([userLat, userLon]).addTo(map)
+                            .bindPopup("You are here!").openPopup();
+                    } else {
+                        userMarker.setLatLng([userLat, userLon]);
+                    }
+                }, function(error) {
+                    console.error("Error getting the location:", error);
+                    alert("Unable to retrieve your location.");
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        // Toggle visibility of city input field based on location option
+        function toggleLocationInput() {
+            const locationOption = document.getElementById('locationOption').value;
+            const cityInput = document.getElementById('cityInput');
+            cityInput.style.display = locationOption === 'enter' ? 'inline' : 'none';
+        }
+
+        // Toggle voice functionality
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled; // Toggle voiceEnabled flag
+            const voiceButton = document.querySelector('.voice-toggle');
+            voiceButton.textContent = voiceEnabled ? 'Voice On' : 'Voice Off';
+        }
+
+        // Find hospitals based on the user's location or entered city
+        function findHospitals() {
+            const locationOption = document.getElementById('locationOption').value;
+            if (locationOption === 'current') {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        userLat = position.coords.latitude;
+                        userLon = position.coords.longitude;
+                        map.setView([userLat, userLon], 13);
+                        if (userMarker) {
+                            userMarker.setLatLng([userLat, userLon]);
+                        } else {
+                            userMarker = L.marker([userLat, userLon]).addTo(map)
+                                .bindPopup("You are here!").openPopup();
+                        }
+                        fetchHospitals(userLat, userLon);
+                    });
+                } else {
+                    alert("Geolocation is not supported by this browser.");
+                }
+            } else {
+                const city = document.getElementById('cityInput').value;
+                const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${city}`;
+                fetch(nominatimUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            const lat = data[0].lat, lon = data[0].lon;
+                            map.setView([lat, lon], 13);
+                            fetchHospitals(lat, lon);
+                        } else {
+                            alert("City not found!");
+                        }
+                    });
+            }
+        }
+
+        // Fetch hospitals within a 10 km radius from the given lat/lon
+        function fetchHospitals(lat, lon) {
+            const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];node(around:10000,${lat},${lon})[amenity=hospital];out;`;
+            fetch(overpassUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const hospitals = data.elements.map(hospital => ({
+                        lat: hospital.lat,
+                        lon: hospital.lon,
+                        name: hospital.tags.name || "Unnamed Hospital",
+                        distance: getDistance(lat, lon, hospital.lat, hospital.lon)
+                    }));
+
+                    hospitals.sort((a, b) => a.distance - b.distance);
+                    const topHospitals = hospitals.slice(0, 5);  // Select top 5 closest hospitals
+                    displayHospitals(topHospitals);
+                });
+        }
+
+        // Display hospitals on the map
+        function displayHospitals(hospitals) {
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker && layer !== userMarker) map.removeLayer(layer);
+            });
+
+            hospitals.forEach(hospital => {
+                const hospitalMarker = L.marker([hospital.lat, hospital.lon]).addTo(map)
+                    .bindPopup(hospital.name);
+                hospitalMarker.on('click', function() {
+                    selectHospital(hospital);
+                });
+            });
+        }
+
+        // Select a hospital and track the route
+        function selectHospital(hospital) {
+            if (routeControl) {
+                map.removeControl(routeControl);
+            }
+            const hospitalMarker = L.marker([hospital.lat, hospital.lon]).addTo(map);
+            hospitalMarker.bindPopup(hospital.name).openPopup();
+            trackRoute(hospital.lat, hospital.lon);
+        }
+
+        // Track route to the selected hospital
+        function trackRoute(hospitalLat, hospitalLon) {
+            if (routeControl) {
+                map.removeControl(routeControl);
+            }
+            routeControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(userLat, userLon),
+                    L.latLng(hospitalLat, hospitalLon)
+                ],
+                routeWhileDragging: true
+            }).addTo(map);
+
+            routeControl.on('routesfound', function(e) {
+                const route = e.routes[0];
+                route.instructions.forEach((instruction, index) => {
+                    setTimeout(function() {
+                        if (voiceEnabled) {
+                            speakDirections(instruction.text);
+                        }
+                    }, index * 5000); // Delay for voice speaking each instruction
+                });
+            });
+        }
+
+        // Speak directions to the user
+        function speakDirections(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(msg);
+        }
+
+        // Calculate distance between two geographical points
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;  // returns distance in km
+        }
+
+        // Call the initial location centering when the page loads
+        window.onload = function() {
+            centerMapOnCurrentLocation();
+        };
+    </script>
+</body>
+</html>
+
